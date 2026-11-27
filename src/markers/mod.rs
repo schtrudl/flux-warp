@@ -2,6 +2,8 @@ use std::fs::File;
 use std::path::Path;
 use std::time::Duration;
 
+mod auda;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MarkerType {
     Point,
@@ -112,7 +114,8 @@ pub fn read_marker_file(path: &Path) -> Result<Vec<TimeMarker>, Box<dyn std::err
             .collect())
         }
         Some(ext) if ext == "txt" => {
-            todo!("Handle TXT marker file");
+            let labels = auda::read(File::open(path)?)?;
+            Ok(IntoTimeMarkersIterator::new(labels.into_iter()).collect())
         }
         _ => Err(format!("Unsupported marker file {}", path.display()).into()),
     }
@@ -198,7 +201,10 @@ pub fn write_marker_file(
             Ok(())
         }
         Some(ext) if ext == "txt" => {
-            todo!("Handle TXT marker file");
+            let labels = FromTimeMarkersIterator::new(markers.iter())
+                .map(|(name, start, end)| (name.to_string(), start, end));
+            auda::write(File::create(path)?, labels)?;
+            Ok(())
         }
         _ => Err(format!("Unsupported marker file {}", path.display()).into()),
     }
@@ -234,6 +240,86 @@ mod tests {
         ]
     }
 
+    fn exact_example_markers() -> Vec<TimeMarker> {
+        vec![
+            TimeMarker {
+                name: "1".to_string(),
+                t: Duration::from_nanos(208_980_000),
+                ty: MarkerType::Point,
+            },
+            TimeMarker {
+                name: "23".to_string(),
+                t: Duration::from_nanos(917_188_000),
+                ty: MarkerType::RegionStart,
+            },
+            TimeMarker {
+                name: "23".to_string(),
+                t: Duration::from_nanos(2_287_166_000),
+                ty: MarkerType::RegionEnd,
+            },
+            TimeMarker {
+                name: "4".to_string(),
+                t: Duration::from_nanos(3_250_794_000),
+                ty: MarkerType::Point,
+            },
+        ]
+    }
+
+    fn s11() -> Vec<TimeMarker> {
+        vec![
+            TimeMarker {
+                name: "s0".to_string(),
+                t: Duration::from_nanos(0),
+                ty: MarkerType::Point,
+            },
+            TimeMarker {
+                name: "s1".to_string(),
+                t: Duration::from_nanos(23_000),
+                ty: MarkerType::Point,
+            },
+            TimeMarker {
+                name: "s3".to_string(),
+                t: Duration::from_nanos(45_000),
+                ty: MarkerType::Point,
+            },
+            TimeMarker {
+                name: "s4".to_string(),
+                t: Duration::from_nanos(68_000),
+                ty: MarkerType::Point,
+            },
+            TimeMarker {
+                name: "s5".to_string(),
+                t: Duration::from_nanos(91_000),
+                ty: MarkerType::Point,
+            },
+            TimeMarker {
+                name: "s6".to_string(),
+                t: Duration::from_nanos(113_000),
+                ty: MarkerType::Point,
+            },
+            TimeMarker {
+                name: "s7".to_string(),
+                t: Duration::from_nanos(136_000),
+                ty: MarkerType::Point,
+            },
+            TimeMarker {
+                name: "s8".to_string(),
+                t: Duration::from_nanos(159_000),
+                ty: MarkerType::Point,
+            },
+            TimeMarker {
+                name: "s9".to_string(),
+                t: Duration::from_nanos(181_000),
+                ty: MarkerType::Point,
+            },
+            TimeMarker {
+                name: "s10".to_string(),
+                t: Duration::from_nanos(204_000),
+                ty: MarkerType::Point,
+            },
+        ]
+    }
+
     #[test]
     fn test_unsupported_read_marker_file() {
         let path = Path::new("file.png");
@@ -250,6 +336,18 @@ mod tests {
     fn test_read_marker_file_srt() {
         let path = Path::new("./src/markers/ex_markers.srt");
         assert_eq!(read_marker_file(path).unwrap(), example_markers());
+    }
+
+    #[test]
+    fn test_read_marker_file_txt() {
+        let path = Path::new("./src/markers/ex_markers.txt");
+        assert_eq!(read_marker_file(path).unwrap(), exact_example_markers());
+    }
+
+    #[test]
+    fn test_s11() {
+        let path = Path::new("./src/markers/s11.txt");
+        assert_eq!(read_marker_file(path).unwrap(), s11());
     }
 
     #[test]
@@ -276,5 +374,25 @@ mod tests {
             .with_extension("vtt");
         assert!(write_marker_file(&path, &example_markers()).is_ok());
         assert_eq!(read_marker_file(&path).unwrap(), example_markers());
+    }
+
+    #[test]
+    fn test_write_txt_marker_file() {
+        let path = tempfile::NamedTempFile::new()
+            .unwrap()
+            .path()
+            .with_extension("txt");
+        assert!(write_marker_file(&path, &exact_example_markers()).is_ok());
+        assert_eq!(read_marker_file(&path).unwrap(), exact_example_markers());
+    }
+
+    #[test]
+    fn test_write_s11_marker_file() {
+        let path = tempfile::NamedTempFile::new()
+            .unwrap()
+            .path()
+            .with_extension("txt");
+        assert!(write_marker_file(&path, &s11()).is_ok());
+        assert_eq!(read_marker_file(&path).unwrap(), s11());
     }
 }
