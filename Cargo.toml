@@ -9,3 +9,4 @@ vtt = "1"
 srtlib = "0.2"
 serde = {"version" = "1", "features" = ["derive"]}
 tempfile = "3"
+clap = { version = "4", features = ["derive"] }
